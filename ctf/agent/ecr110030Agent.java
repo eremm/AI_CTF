@@ -152,6 +152,19 @@ public class ecr110030Agent extends Agent {
         } else if(staticVariablesReset) staticVariablesReset = false;
     }
     
+    private int move(Direction direction)
+    {
+        localStartingCoordinate = new Coordinate(localStartingCoordinate, direction, Entity.TEAMMATE);
+        localMap.put(localStartingCoordinate.c, localStartingCoordinate);
+        switch(direction) {
+            case NORTH: return AgentAction.MOVE_NORTH;
+            case SOUTH: return AgentAction.MOVE_SOUTH;
+            case EAST:  return AgentAction.MOVE_EAST;
+            case WEST:  return AgentAction.MOVE_WEST;
+            default: return AgentAction.DO_NOTHING;
+        }
+    }
+    
     /**
      * Calculates the next move for an agent.
      * @param inEnvironment the environment in which the agent is in
@@ -175,17 +188,19 @@ public class ecr110030Agent extends Agent {
         //================================================================//
         //locally store data until map size has been determined
         if(!determinedMapSize) {
-            
+            localStartingCoordinate.scanAround(localMap);
+            printShit();
+            localMap.keySet().stream().forEach((Point p) -> System.out.printf("("+p.x+","+p.y+")\t"));
+            System.out.println();
+            if(!inEnvironment.isObstacleWestImmediate()){
+                return this.move(Direction.WEST);
+            }
         }
         //now, migrate agent data to shared map
         if(determinedMapSize) {
             
         }
         
-        localStartingCoordinate.scanAround(localMap);
-        printShit();
-        localMap.keySet().stream().forEach((Point p) -> System.out.printf("("+p.x+","+p.y+")\t"));
-        System.out.println();
         
         /* Test stuff */
         //localStartingCoordinate.scanAround(localMap);
