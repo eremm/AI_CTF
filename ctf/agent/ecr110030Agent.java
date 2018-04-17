@@ -39,9 +39,12 @@ public class ecr110030Agent extends Agent {
     
     //----Private local Agent variables and constructor----//
     private final int agentNum;
+    private int turnNum;
     AgentEnvironment inEnvironment; //set every time getMove is called
+    //must only use no-arg constructor
     public ecr110030Agent(){
         agentNum = agentNumInitializer++;
+        turnNum = 0;
     }
     
             
@@ -60,7 +63,6 @@ public class ecr110030Agent extends Agent {
     //Variables for locally storing map data
     private Coordinate localStartingCoordinate = new Coordinate(0,0);
     private HashMap<Point, Coordinate> localMap = new HashMap<>();
-    //private HashMap<Coordinate.Point, Coordinate> localMap = new HashMap<>(); //record what's found, then provide move
     //------------------------------------------------------------------------//
     
     
@@ -144,9 +146,10 @@ public class ecr110030Agent extends Agent {
         if(firstMove) { firstMove = false;
             startSide = inEnvironment.isBaseNorth(AgentEnvironment.OUR_TEAM, false) ? Direction.SOUTH : Direction.NORTH;
             moveNorth = (startSide==Direction.SOUTH && !inEnvironment.isAgentNorth(AgentEnvironment.OUR_TEAM,true));
-            if(!staticVariablesReset) resetStaticVariables(); 
+            if(!staticVariablesReset) resetStaticVariables();
+            localMap.put(new Point(0,0), start);
+            System.out.println("-----");
         } else if(staticVariablesReset) staticVariablesReset = false;
-        localMap.put(new Point(0,0), start);
     }
     
     /**
@@ -156,12 +159,12 @@ public class ecr110030Agent extends Agent {
      */
     @Override
     public int getMove(AgentEnvironment inEnvironment) {
-        this.inEnvironment = inEnvironment;
+        this.inEnvironment = inEnvironment; turnNum++; System.out.println();
         firstMoveAndSouthSideCounts(localStartingCoordinate);                                               
         if(!determinedBaseSide) baseSide = inEnvironment.isBaseWest(AgentEnvironment.ENEMY_TEAM, false) ? Direction.WEST : Direction.EAST;//
         //initialization of map size and grid                                       //
         if(moveNorth){ //calculates map size, assuming map size is even integer.   //
-            printShit();                                                          //
+          //printShit();                                                          //
             startingColumnSize++;                                                //
             if(inEnvironment.isFlagNorth(AgentEnvironment.OUR_TEAM, true)) {    //
                 moveNorth = false;                                             //
@@ -178,25 +181,40 @@ public class ecr110030Agent extends Agent {
         if(determinedMapSize) {
             
         }
-        localStartingCoordinate.scanAround(localMap);
-        localMap.keySet().stream().forEach((Point p) -> System.out.println("("+p.x+","+p.y+")"));
         
+        localStartingCoordinate.scanAround(localMap);
+        printShit();
+        localMap.keySet().stream().forEach((Point p) -> System.out.printf("("+p.x+","+p.y+")\t"));
+        System.out.println();
+        
+        /* Test stuff */
+        //localStartingCoordinate.scanAround(localMap);
+        //printShit();
+        //localMap.keySet().stream().forEach((Point p) -> System.out.println("("+p.x+","+p.y+")"));
+        /*
         if(determinedMapSize)
             System.out.println("Map size: " + mapSize);
         printShit();
         //not valid if player gets tagged, or is blocked
-        Point k = localStartingCoordinate.c;
-        k.translate(1,0);
-        localStartingCoordinate = localMap.get(k).entity==Entity.EMPTY ? new Coordinate(localStartingCoordinate, Direction.WEST, Entity.TEAMMATE) : localStartingCoordinate;
-        return AgentAction.MOVE_WEST;
+        */
+        //Point k = localStartingCoordinate.c;
+        //k.translate(1,0);
+        //printShit();
+        //localMap.keySet().stream().forEach((Point p) -> System.out.println("("+p.x+","+p.y+")"));
+        
+        //localStartingCoordinate = localMap.get(k).entity==Entity.EMPTY ? new Coordinate(localStartingCoordinate, Direction.WEST, Entity.TEAMMATE) : localStartingCoordinate;
+        //return localMap.get(k).entity==Entity.EMPTY ? AgentAction.MOVE_WEST : AgentAction.DO_NOTHING;
+        
+        //return AgentAction.MOVE_WEST;
+        return AgentAction.DO_NOTHING;
     }
     
     
     
     private void printShit()
     {
-        System.out.println("Agent Num\tStart Side\tBase Side\tmoveNorth");
-        System.out.println(this.agentNum + "\t\t" + this.startSide + "\t\t" + ecr110030Agent.baseSide + "\t\t" + this.moveNorth);        
+        System.out.println("Turn | Agent | Start Side | Base Side | moveNorth");
+        System.out.printf("%4d | %5d | %10s | %9s | %s%n",this.turnNum,this.agentNum,this.startSide,ecr110030Agent.baseSide,this.moveNorth);        
     }
     //in a 10x10 game, flag should be located at row 9/2 = 4  ex: [0,1,2,3,*4*,5,6,7,8,9]
     //as such, bottom agent should move upwards until flag is found.  Maybe have both agents
