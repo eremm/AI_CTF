@@ -22,6 +22,7 @@ public class ecr110030Agent extends Agent {
     private static enum Direction { NORTH, SOUTH, EAST, WEST; }
     private static enum Entity { TEAMMATE, ENEMY, OBSTACLE, EMPTY, OURFLAG, ENEMYFLAG, OURBASE, ENEMYBASE; }
     private static int agentNumInitializer = 0;
+    private static int maxAgentNum = 0;
     private static boolean staticVariablesReset = false;
     private static Direction baseSide = Direction.EAST;
     private static boolean determinedBaseSide = false;
@@ -30,6 +31,7 @@ public class ecr110030Agent extends Agent {
     
     //Any static variables that must be reset (almost all) should be re-assigned here
     private void resetStaticVariables() { staticVariablesReset = true;
+        maxAgentNum = agentNumInitializer + 0;
         agentNumInitializer = 0;    //gets reset after agents have been constructed for a team
         baseSide = Direction.EAST;
         determinedBaseSide = false;
@@ -63,6 +65,7 @@ public class ecr110030Agent extends Agent {
     //Variables for locally storing map data
     private Coordinate localStartingCoordinate = new Coordinate(0,0);
     private HashMap<Point, Coordinate> localMap = new HashMap<>();
+    private boolean migrateData = true;
     //------------------------------------------------------------------------//
     
     
@@ -182,12 +185,13 @@ public class ecr110030Agent extends Agent {
             if(inEnvironment.isFlagNorth(AgentEnvironment.OUR_TEAM, true)) {    //
                 moveNorth = false;                                             //
                 determinedMapSize = true;                                     //
-                mapSize = startingColumnSize * 2;                            //
+                mapSize = 2*(startingColumnSize+(maxAgentNum/2 - 1));        //
             } else {                                                        //
                 return AgentAction.MOVE_NORTH;}}                           //
         //================================================================//
         //locally store data until map size has been determined
         if(!determinedMapSize) {
+            System.out.println(maxAgentNum);
             localStartingCoordinate.scanAround(localMap);
             printShit();
             localMap.keySet().stream().forEach((Point p) -> System.out.printf("("+p.x+","+p.y+")\t"));
@@ -198,29 +202,19 @@ public class ecr110030Agent extends Agent {
         }
         //now, migrate agent data to shared map
         if(determinedMapSize) {
+            if(migrateData) { migrateData = false;
+                //reminder: agents are initialzed from top to bottom 
+                Coordinate actualCoordinate = new Coordinate(baseSide==Direction.WEST ? mapSize-1 : 0, agentNum <= (maxAgentNum-1)/2 ? mapSize-1-agentNum : 0+maxAgentNum-1-agentNum);
+                
+            }
+            
+            /** 
+             * AI logic here. 
+             */
+            
             
         }
         
-        
-        /* Test stuff */
-        //localStartingCoordinate.scanAround(localMap);
-        //printShit();
-        //localMap.keySet().stream().forEach((Point p) -> System.out.println("("+p.x+","+p.y+")"));
-        /*
-        if(determinedMapSize)
-            System.out.println("Map size: " + mapSize);
-        printShit();
-        //not valid if player gets tagged, or is blocked
-        */
-        //Point k = localStartingCoordinate.c;
-        //k.translate(1,0);
-        //printShit();
-        //localMap.keySet().stream().forEach((Point p) -> System.out.println("("+p.x+","+p.y+")"));
-        
-        //localStartingCoordinate = localMap.get(k).entity==Entity.EMPTY ? new Coordinate(localStartingCoordinate, Direction.WEST, Entity.TEAMMATE) : localStartingCoordinate;
-        //return localMap.get(k).entity==Entity.EMPTY ? AgentAction.MOVE_WEST : AgentAction.DO_NOTHING;
-        
-        //return AgentAction.MOVE_WEST;
         return AgentAction.DO_NOTHING;
     }
     
