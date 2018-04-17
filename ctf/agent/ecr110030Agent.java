@@ -28,6 +28,7 @@ public class ecr110030Agent extends Agent {
     private static boolean determinedBaseSide = false;
     private static int mapSize = 10;
     private static boolean determinedMapSize = false;
+    private static HashMap<Point, Entity> map = new HashMap<>();
     
     //Any static variables that must be reset (almost all) should be re-assigned here
     private void resetStaticVariables() { staticVariablesReset = true;
@@ -42,11 +43,13 @@ public class ecr110030Agent extends Agent {
     //----Private local Agent variables and constructor----//
     private final int agentNum;
     private int turnNum;
+    private Coordinate location;
     AgentEnvironment inEnvironment; //set every time getMove is called
     //must only use no-arg constructor
     public ecr110030Agent(){
         agentNum = agentNumInitializer++;
         turnNum = 0;
+        location = new Coordinate(0,0);
     }
     
             
@@ -64,7 +67,7 @@ public class ecr110030Agent extends Agent {
     private int startingColumnSize = 1; //Agent checks next square and counts himself
     //Variables for locally storing map data
     private Coordinate localStartingCoordinate = new Coordinate(0,0);
-    private HashMap<Point, Coordinate> localMap = new HashMap<>();
+    private HashMap<Point, Entity> localMap = new HashMap<>();
     private boolean migrateData = true;
     //------------------------------------------------------------------------//
     
@@ -84,17 +87,17 @@ public class ecr110030Agent extends Agent {
                 case SOUTH: c.translate( 0,-1); break;
                 case EAST:  c.translate(-1, 0); break;
                 case WEST:  c.translate( 1, 0); break;
-                default: break; 
+                default:    c.translate( 0, 0); break; 
             }
         }
         //
-        private void scanAround(HashMap<Point, Coordinate> map){ //use hashmap instead with points and coords?
+        private void scanAround(HashMap<Point, Entity> map){ //use hashmap instead with points and coords?
             Coordinate north = this.scanAdjacent(Direction.NORTH);
             Coordinate south = this.scanAdjacent(Direction.SOUTH);
             Coordinate east  = this.scanAdjacent(Direction.EAST);
             Coordinate west  = this.scanAdjacent(Direction.WEST);
             //apply cluster to map
-            map.put(north.c,north); map.put(south.c, south); map.put(east.c, east); map.put(west.c, west);
+            map.put(north.c,north.entity); map.put(south.c, south.entity); map.put(east.c, east.entity); map.put(west.c, west.entity);
         }
         //scans immediate surroundings of agent
         private Coordinate scanAdjacent(Direction direction){
@@ -127,6 +130,7 @@ public class ecr110030Agent extends Agent {
             }
             return new Coordinate(this, direction, tile);
         } 
+        //may not need these
         @Override
         public boolean equals(Object o){
             if(o.getClass() != Coordinate.class) return false;
@@ -150,15 +154,13 @@ public class ecr110030Agent extends Agent {
             startSide = inEnvironment.isBaseNorth(AgentEnvironment.OUR_TEAM, false) ? Direction.SOUTH : Direction.NORTH;
             moveNorth = (startSide==Direction.SOUTH && !inEnvironment.isAgentNorth(AgentEnvironment.OUR_TEAM,true));
             if(!staticVariablesReset) resetStaticVariables();
-            localMap.put(new Point(0,0), start);
+            localMap.put(start.c, start.entity);
             System.out.println("-----");
         } else if(staticVariablesReset) staticVariablesReset = false;
     }
     
-    private int move(Direction direction)
+    private int action(Direction direction)
     {
-        localStartingCoordinate = new Coordinate(localStartingCoordinate, direction, Entity.TEAMMATE);
-        localMap.put(localStartingCoordinate.c, localStartingCoordinate);
         switch(direction) {
             case NORTH: return AgentAction.MOVE_NORTH;
             case SOUTH: return AgentAction.MOVE_SOUTH;
@@ -167,6 +169,25 @@ public class ecr110030Agent extends Agent {
             default: return AgentAction.DO_NOTHING;
         }
     }
+    
+    private int localMove(Direction direction)
+    {
+        Coordinate nextMove = new Coordinate(this.location, direction, Entity.TEAMMATE);
+        localMap.put(location.c, Entity.EMPTY);
+        this.location = nextMove;
+        localMap.put(nextMove.c, nextMove.entity);
+        return this.action(direction);
+    }
+    
+    private int move(Direction direction)
+    {
+        Coordinate nextMove = new Coordinate(this.location, direction, Entity.TEAMMATE);
+        map.put(location.c, Entity.EMPTY);      //old location is empty
+        this.location = nextMove;           
+        map.put(nextMove.c, nextMove.entity);   //new location = nextMove
+        return this.action(direction);
+    }
+    
     
     /**
      * Calculates the next move for an agent.
@@ -192,12 +213,12 @@ public class ecr110030Agent extends Agent {
         //locally store data until map size has been determined
         if(!determinedMapSize) {
             System.out.println(maxAgentNum);
-            localStartingCoordinate.scanAround(localMap);
+            location.scanAround(localMap);  //scan around current location
             printShit();
             localMap.keySet().stream().forEach((Point p) -> System.out.printf("("+p.x+","+p.y+")\t"));
             System.out.println();
             if(!inEnvironment.isObstacleWestImmediate()){
-                return this.move(Direction.WEST);
+                return this.localMove(Direction.WEST);  //make a local move and update old/new locations
             }
         }
         //now, migrate agent data to shared map
@@ -205,7 +226,13 @@ public class ecr110030Agent extends Agent {
             if(migrateData) { migrateData = false;
                 //reminder: agents are initialzed from top to bottom 
                 Coordinate actualCoordinate = new Coordinate(baseSide==Direction.WEST ? mapSize-1 : 0, agentNum <= (maxAgentNum-1)/2 ? mapSize-1-agentNum : 0+maxAgentNum-1-agentNum);
-                
+                localMap.keySet().forEach((Point p) -> {
+                    //map.put(actualCoordinate.c, );
+                    
+                    //need to: change location to be relative to localStartingCoordinate,
+                    //and migrate map data
+                    
+                });
             }
             
             /** 
