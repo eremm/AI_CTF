@@ -10,6 +10,7 @@ import ctf.common.AgentEnvironment;
 import java.awt.Point;
 import java.util.HashMap;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -85,8 +86,8 @@ public class ecr110030Agent extends Agent {
             switch(adjacent) {
                 case NORTH: c.translate( 0, 1); break;
                 case SOUTH: c.translate( 0,-1); break;
-                case EAST:  c.translate(-1, 0); break;
-                case WEST:  c.translate( 1, 0); break;
+                case EAST:  c.translate( 1, 0); break;
+                case WEST:  c.translate(-1, 0); break;
                 default:    c.translate( 0, 0); break; 
             }
         }
@@ -207,15 +208,20 @@ public class ecr110030Agent extends Agent {
                 moveNorth = false;                                             //
                 determinedMapSize = true;                                     //
                 mapSize = 2*(startingColumnSize+(maxAgentNum/2 - 1));        //
-            } else {                                                        //
-                return AgentAction.MOVE_NORTH;}}                           //
-        //================================================================//
+                //initialize map                                            //
+                for(int j=0; j<mapSize; j++) {                             //
+                    for(int k=0; k<mapSize; k++) {                        //
+                        map.put(new Point(j,k), Entity.EMPTY);}}         //
+            } else {                                                    //
+                //printInfo();
+                //localMap.keySet().stream().forEach((Point p) -> System.out.printf("("+p.x+","+p.y+")\t"));
+                return AgentAction.MOVE_NORTH;}}                       //
+        //============================================================//
         //locally store data until map size has been determined
         if(!determinedMapSize) {
-            System.out.println(maxAgentNum);
             location.scanAround(localMap);  //scan around current location
-            printShit();
-            localMap.keySet().stream().forEach((Point p) -> System.out.printf("("+p.x+","+p.y+")\t"));
+            //printInfo();
+            //localMap.keySet().stream().forEach((Point p) -> System.out.printf("("+p.x+","+p.y+")\t"));
             System.out.println();
             if(!inEnvironment.isObstacleWestImmediate()){
                 return this.localMove(Direction.WEST);  //make a local move and update old/new locations
@@ -223,39 +229,77 @@ public class ecr110030Agent extends Agent {
         }
         //now, migrate agent data to shared map
         if(determinedMapSize) {
+            //migrate data from localMap to map
             if(migrateData) { migrateData = false;
                 //reminder: agents are initialzed from top to bottom 
                 Coordinate actualCoordinate = new Coordinate(baseSide==Direction.WEST ? mapSize-1 : 0, agentNum <= (maxAgentNum-1)/2 ? mapSize-1-agentNum : 0+maxAgentNum-1-agentNum);
                 localMap.keySet().forEach((Point p) -> {
-                    //map.put(actualCoordinate.c, );
-                    
-                    //need to: change location to be relative to localStartingCoordinate,
-                    //and migrate map data
-                    
+                    Entity e = localMap.get(p);
+                    Point newP = new Point(p);
+                    newP.translate(actualCoordinate.c.x, actualCoordinate.c.y);
+                    map.put(newP,e);
                 });
+                Point newP = new Point(location.c);
+                newP.translate(actualCoordinate.c.x, actualCoordinate.c.y);
+                this.location.c = newP;
             }
             
+            //printInfo();
+            //map.keySet().stream().forEach((Point p) -> System.out.printf("("+p.x+","+p.y+")"+ map.get(p).toString() +"\t"));
+            //System.out.println();
+            
+            printMap();
+            
             /** 
-             * AI logic here. 
+             * AI logic goes here. 
              */
             
             
         }
         
+        //do nothing for now once map initialized...
         return AgentAction.DO_NOTHING;
     }
     
     
-    
-    private void printShit()
+    private void printInfo()
     {
         System.out.println("Turn | Agent | Start Side | Base Side | moveNorth");
         System.out.printf("%4d | %5d | %10s | %9s | %s%n",this.turnNum,this.agentNum,this.startSide,ecr110030Agent.baseSide,this.moveNorth);        
     }
+    
+    private void printMap()
+    {
+        String str = map.keySet().stream()
+                .sorted((p1, p2) -> (p1.x - p2.x) + (mapSize+3)*(p1.y - p2.y))
+                .filter(p -> p.x < mapSize)
+                .filter(p -> p.y < mapSize)
+                .map(p -> display(p))
+                .collect(Collectors.joining(" "));
+        
+        map.keySet().stream().forEach((Point p) -> System.out.printf("("+p.x+","+p.y+")"+ map.get(p).toString() +"\t"));
+        System.out.println();
+        for (int i = str.length()-20; i > 0; i -= 20){
+           System.out.println(str.substring(i, i+20));
+        }
+    }
+    
+    private String display(Point p){
+        char entity;
+        switch(map.get(p)) {
+            case TEAMMATE:  entity = 'T'; break;
+            case ENEMY:     entity = 'E'; break;
+            case OBSTACLE:  entity = '*'; break;
+            case OURFLAG:   entity = '~'; break;
+            case ENEMYFLAG: entity = '?'; break;
+            case OURBASE:   entity = 'H'; break;
+            case ENEMYBASE: entity = 'B'; break;
+            default:        entity = '_'; break;
+        }
+        return "" + entity;
+    }
+    
     //in a 10x10 game, flag should be located at row 9/2 = 4  ex: [0,1,2,3,*4*,5,6,7,8,9]
     //as such, bottom agent should move upwards until flag is found.  Maybe have both agents
     //  move to flag and bomb around it?
-    
-    
-    
 }
