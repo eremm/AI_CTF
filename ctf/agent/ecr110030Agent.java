@@ -10,7 +10,9 @@ import ctf.common.AgentEnvironment;
 import java.awt.Point;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 
 /**
@@ -21,7 +23,7 @@ public class ecr110030Agent extends Agent {
     
     //----Static class variables used to communicate between agents----//
     //Must be reset between every run since each match only has 1 round
-    private static enum Direction { NORTH, SOUTH, EAST, WEST, NOWHERE; }
+    private static enum Direction { NORTH, SOUTH, EAST, WEST; }
     private static enum Entity { TEAMMATE, ENEMY, OBSTACLE, EMPTY, OURFLAG, ENEMYFLAG, OURBASE, ENEMYBASE; }
     private static boolean staticVariablesReset = false;    
     private static int agentNumInitializer = 0;
@@ -92,7 +94,6 @@ public class ecr110030Agent extends Agent {
                 case SOUTH: c.translate( 0,-1); break;
                 case EAST:  c.translate( 1, 0); break;
                 case WEST:  c.translate(-1, 0); break;
-                case NOWHERE: c.translate(0,0); break;
                 default:    c.translate( 0, 0); break; 
             }
         }
@@ -263,75 +264,88 @@ public class ecr110030Agent extends Agent {
     private class Node{
         Point p = new Point();
         Node parent;
+        Direction moveDir; //direction taken to reach this node
         int f, g, h;
         
         private Node(Point thisPoint) { p = thisPoint; g = 0; h = manhattanDistance(); f = g + h; }
-        private Node(Point thisPoint, Node parentNode) {
+        private Node(Point thisPoint, Node parentNode, Direction dir) {
             p = thisPoint;
             parent = parentNode;
-            g = this.parent.g;
+            moveDir = dir;
+            g = this.parent.g+1;
             h = manhattanDistance();
-            f = this.parent.g+1 + this.h;
+            f = this.g + this.h;
+            System.out.println("Point: ("+p.x+","+p.y+"); f="+f+", g="+g+", h="+h);
         }
         private int manhattanDistance() {
-            System.out.println("Mh dist: ("+goal.c.x+","+goal.c.y+") - ("+this.p.x+","+this.p.y+") = "+Math.abs(goal.c.x - this.p.x) + Math.abs(goal.c.y - this.p.y));
+            //System.out.println("Mh dist: ("+goal.c.x+","+goal.c.y+") - ("+this.p.x+","+this.p.y+") = "+(Math.abs(goal.c.x - this.p.x) + Math.abs(goal.c.y - this.p.y)));
             return Math.abs(goal.c.x - this.p.x) + Math.abs(goal.c.y - this.p.y); 
+        }
+        @Override
+        public boolean equals(Object o)
+        {
+            if(o.getClass() != this.getClass()) return true;
+            return this.p.equals(o);
+        }
+        @Override
+        public int hashCode() {
+            int hash = 7;
+            hash = 43 * hash + Objects.hashCode(this.p);
+            return hash;
         }
     }
     
     private Direction astar(HashMap<Point, Entity> map)
     {
-        //initialize search graph
-        HashMap<Point, Node> searchGraph = new HashMap<>();
-        searchGraph.put(this.location.c, new Node(this.location.c));
-        searchGraph.keySet().forEach(p -> System.out.print("("+p.x+','+p.y+") ") ); System.out.println();
-        Node goalLeaf = successors(searchGraph);
-        Node parent = goalLeaf.parent;
-        while(parent != null && parent != searchGraph.get(goal.c)) 
-        {
-            goalLeaf = parent;
-            parent = goalLeaf.parent;
+        //initialize priority queue and associated set
+        PriorityQueue<Node> searchGraph = new PriorityQueue<>(
+                (Node n1, Node n2) -> { 
+                    return n1.f == n2.f ? n1.h == n2.h ? n1.p.x - n2.p.x : n1.h - n2.h : n1.f - n2.f; 
+        });
+        //maybe duplicates don't matter?
+        //HashSet<Node> searchSet = new HashSet<>();
+        searchGraph.add(new Node(this.location.c));
+        //goalLeaf = null if no path found, which will not happen since duplicates are allowed for now
+        Node goalLeaf = successors(map, searchGraph);
+        Direction moveDirection = goalLeaf.moveDir;
+        while(true) {
+            if(goalLeaf.parent != null && goalLeaf.parent.moveDir == null)
+                break;
+            else {
+                goalLeaf = goalLeaf.parent;
+                moveDirection = goalLeaf.moveDir;
+            }
         }
-        /* */if(goalLeaf.p.x==this.location.c.x   && goalLeaf.p.y==this.location.c.y+1) return Direction.NORTH;
-        else if(goalLeaf.p.x==this.location.c.x   && goalLeaf.p.y==this.location.c.y-1) return Direction.SOUTH;
-        else if(goalLeaf.p.x==this.location.c.x+1 && goalLeaf.p.y==this.location.c.y  ) return Direction.EAST;
-        else if(goalLeaf.p.x==this.location.c.x-1 && goalLeaf.p.y==this.location.c.y  ) return Direction.NORTH;
-        else return Direction.NOWHERE;
+        return moveDirection;
     }
     
-    private Node successors(HashMap<Point, Node> searchGraph)
+    private Node successors(HashMap<Point, Entity> map, PriorityQueue<Node> searchGraph)
     {
         if(searchGraph.isEmpty()) return null;
         else {
-               searchGraph.keySet().forEach(p -> System.out.print("("+p.x+','+p.y+") "+
-               searchGraph.get(p).f+"="+searchGraph.get(p).g+"+"+searchGraph.get(p).h+" ") ); System.out.println();
-               
-            Node n = searchGraph.get(searchGraph.keySet()
-                    .stream()
-                    .min((p1,p2) -> searchGraph.get(p1).f - searchGraph.get(p2).f)
-                    .get());
-                    
-                 /* .reduce(
-                        this.location.c,
-                        (min, next) -> searchGraph.get(next).f < searchGraph.get(min).f ? next : min
-                    )); */
-        //    System.out.print("("+n.p.x+','+n.p.y+") "); System.out.println();
-
-            Point p = n.p;
-            searchGraph.remove(p);
-            if(p.equals(goal.c)) return searchGraph.get(p);
+            Node n = searchGraph.poll();
+                /* Check if this tile is the enemy flag tile; may need to be changed later */
+            if(n.p.equals(goal.c)) return n;
             else {
-                int x = p.x; int y = p.y;
-                Point newP = new Point(p);
-//**************right now, only trying to navigate empty tiles**********************//
-                newP.setLocation(x  , y+1); if(map.containsKey(newP) && map.get(newP) == Entity.EMPTY) searchGraph.put( new Point(newP) , new Node(newP,n) );
-                newP.setLocation(x  , y-1); if(map.containsKey(newP) && map.get(newP) == Entity.EMPTY) searchGraph.put( new Point(newP) , new Node(newP,n) );
-                newP.setLocation(x+1, y  ); if(map.containsKey(newP) && map.get(newP) == Entity.EMPTY) searchGraph.put( new Point(newP) , new Node(newP,n) );
-                newP.setLocation(x-1, y  ); if(map.containsKey(newP) && map.get(newP) == Entity.EMPTY) searchGraph.put( new Point(newP) , new Node(newP,n) );
+                Direction[] directions = Direction.values();
+                for(Direction dir : directions)
+                {
+                    Point p = new Point(n.p);
+                    switch(dir){
+                        case NORTH: p.translate( 0, 1); break;
+                        case SOUTH: p.translate( 0,-1); break;
+                        case EAST:  p.translate( 1, 0); break;
+                        case WEST:  p.translate(-1, 0); break;
+                    }
+                    Node childNode = new Node(p,n,dir);
+                    if( (p.x > -1) && (p.x < mapSize) && (p.y > -1) && (p.y<mapSize) 
+                            && !map.get(childNode.p).equals(Entity.OBSTACLE) 
+                            && !map.get(childNode.p).equals(Entity.OURBASE))
+                        searchGraph.add(childNode);
+                }
                 
-                return successors(searchGraph);
+                return successors(map, searchGraph);
             }
-            
         }
     }
     
@@ -359,6 +373,7 @@ public class ecr110030Agent extends Agent {
     
     private int move(Direction direction)
     {
+        System.out.println("loc: "+this.location+"dir: "+direction+"ent:"+Entity.TEAMMATE);
         Coordinate nextMove = new Coordinate(this.location, direction, Entity.TEAMMATE);
         map.put(location.c, Entity.EMPTY);      //old location is empty
         this.location = nextMove;           
