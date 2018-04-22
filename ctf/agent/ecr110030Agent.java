@@ -50,19 +50,24 @@ public class ecr110030Agent extends Agent {
     private final int agentNum;
     private int turnNum;
     private Point location;
+    private Entity previousEntity;
+    private Point spawnLocation;
     AgentEnvironment inEnvironment; //set every time getMove is called
+    
     //must only use no-arg constructor
     public ecr110030Agent(){
         agentNum = agentNumInitializer++;
         turnNum = 0;
         location = new Point();
+        //initialize localMap
+        /*
+        for(int y=0; y<mapSize; y++)
+            for(int x=0; x<mapSize; x++)
+                localMap.put(new Point(x,y), Entity.EMPTY);
+        
+        */
     }
     
-    //Ideas:
-    //- try to determine location of each agent, and map it
-    //- map environment
-    //- determine furthest east/west unblocked opening until enemy base is discovered
-            
     //----Private local variables used while still determining board state----//
     //Do not need to be reset each run, as default values are initialized each run
     private boolean firstMove = true;
@@ -81,8 +86,8 @@ public class ecr110030Agent extends Agent {
         if(firstMove) { firstMove = false;
             startSide = inEnvironment.isBaseNorth(AgentEnvironment.OUR_TEAM, false) ? Direction.SOUTH : Direction.NORTH;
             moveNorth = (startSide==Direction.SOUTH && !inEnvironment.isAgentNorth(AgentEnvironment.OUR_TEAM,true));
-            if(!staticVariablesReset) resetStaticVariables();
-            localMap.put(localStartingLocation, Entity.TEAMMATE);
+            if(!staticVariablesReset) resetStaticVariables(); //only works for 2 agents
+            //localMap.put(localStartingLocation, Entity.TEAMMATE);
         } else if(staticVariablesReset) staticVariablesReset = false;
     }
     
@@ -98,52 +103,76 @@ public class ecr110030Agent extends Agent {
         this.inEnvironment = inEnvironment; turnNum++; System.out.println();
         this.firstMoveAndSouthSideCounts();                                           
         if(!determinedBaseSide) baseSide = inEnvironment.isBaseWest(AgentEnvironment.ENEMY_TEAM, false) ? Direction.WEST : Direction.EAST;//
-        //initialization of map size and grid                                       //
-        if(moveNorth){ //calculates map size, assuming map size is even integer.   //
-          //printShit();                                                          //
-            startingColumnSize++;                                                //
-            if(inEnvironment.isFlagNorth(AgentEnvironment.OUR_TEAM, true)) {    //
-                moveNorth = false;                                             //
-                determinedMapSize = true;                                     //
-                mapSize = 2*(startingColumnSize+(maxAgentNum/2 - 1));        //
-                //initialize map                                            //
-                for(int j=0; j<mapSize; j++) {                             //
-                    for(int k=0; k<mapSize; k++) {                        //
+        //initialization of map size and grid
+        if(moveNorth){ //calculates map size, assuming map size is even integer.
+            //printShit();
+            startingColumnSize++;
+            if(!inEnvironment.isFlagNorth(AgentEnvironment.OUR_TEAM, true)) {
+                this.scanAround(localMap);
+                return this.localMove(Direction.NORTH); }
+            else {
+                moveNorth = false;
+                determinedMapSize = true;
+                mapSize = 2*(startingColumnSize+(maxAgentNum/2 - 1));
+                //initialize map
+                for(int j=0; j<mapSize; j++) {
+                    for(int k=0; k<mapSize; k++) {
                         map.put(new Point(j,k), Entity.EMPTY);}
-                location = new Point(baseSide==Direction.EAST ? mapSize-1 : 0, (mapSize-1)/2 - 1);
-                }         //
-            } else {                                                    //
-                this.scanAround(localMap);                             //
-                return this.localMove(Direction.NORTH);}}             //
-        //===========================================================//
+                    location = new Point(baseSide==Direction.EAST ? mapSize-1 : 0, (mapSize-1)/2 - 1); }}
+        } 
+        //----Both agent actions----------------------------------------------//
         //locally store data until map size has been determined
         if(!determinedMapSize) {
+            return AgentAction.DO_NOTHING;
+            /*
             this.scanAround(localMap);  //scan around current location
-            System.out.println();
-            if(!inEnvironment.isObstacleWestImmediate())
-                return this.localMove(Direction.WEST); //make a local move and update old/new locations
+            Point p = new Point(localStartingLocation);
+            p.translate(-1, 0);
+            if(localMap.get(p)==Entity.EMPTY)
+                return this.localMove(Direction.WEST);
+            else {
+                p = new Point(localStartingLocation);
+                p.translate(0, -1);
+                if(localMap.get(p)==Entity.EMPTY)
+                    return this.localMove(Direction.SOUTH);
+            }
+            */
+            //return this.localMove();//make a local move and update old/new locations
         }
         //now, migrate agent data to shared map
         if(determinedMapSize) {
             //migrate data from localMap to map
             if(migrateData) { migrateData = false;
                 //reminder: agents are initialzed from top to bottom 
-                Point actualPoint = new Point(baseSide==Direction.WEST ? mapSize-1 : 0, agentNum <= (maxAgentNum-1)/2 ? mapSize-1-agentNum : 0+maxAgentNum-1-agentNum);
+                spawnLocation = new Point(baseSide==Direction.WEST ? mapSize-1 : 0, agentNum <= (maxAgentNum-1)/2 ? mapSize-1-agentNum : 0+maxAgentNum-1-agentNum);
                 localMap.keySet().forEach((Point p) -> {
                     Point newP = new Point(p);
-                    newP.translate(actualPoint.x, actualPoint.y);
-                    map.put(newP,localMap.get(p));
+                    newP.translate(spawnLocation.x, spawnLocation.y);
+                    //only add non-empty squares
+                    if(localMap.get(p)!=Entity.EMPTY)
+                        map.put(newP,localMap.get(p));
                 });
                 Point newP = new Point(location);
-                newP.translate(actualPoint.x, actualPoint.y);
+                newP.translate(spawnLocation.x, spawnLocation.y);
                 this.location = newP;
             }
             //System.out.println("(" + this.location.x + ',' + this.location.y + ')');
-            printMap();
             
+            printInfo();
             /** 
              * AI logic goes here. 
              */
+            //Check to see if position was reset
+            if(!inEnvironment.isBaseEast(AgentEnvironment.OUR_TEAM,false) && !inEnvironment.isBaseWest(AgentEnvironment.OUR_TEAM,false)) {
+                if(startSide==Direction.SOUTH && inEnvironment.isObstacleSouthImmediate() && inEnvironment.isBaseNorth(AgentEnvironment.OUR_TEAM,false)){
+                    resetPosition();
+                }
+                else if(startSide==Direction.NORTH && inEnvironment.isObstacleNorthImmediate() && inEnvironment.isBaseSouth(AgentEnvironment.OUR_TEAM,false)){
+                    resetPosition();
+                }
+            }
+                
+
             //if this agent does not have the flag
             if(!inEnvironment.hasFlag()){
                 //if a teammate has the enemy flag
@@ -187,15 +216,23 @@ public class ecr110030Agent extends Agent {
         Point newLocation = new Point(location);
         switch(direction) {
             case NORTH: newLocation.translate( 0, 1); map.put(newLocation, Entity.TEAMMATE);
-                        location = newLocation; return AgentAction.MOVE_NORTH;
+                        location = newLocation; printMap();  return AgentAction.MOVE_NORTH;
             case SOUTH: newLocation.translate( 0,-1); map.put(newLocation, Entity.TEAMMATE);
-                        location = newLocation; return AgentAction.MOVE_SOUTH;
+                        location = newLocation; printMap();  return AgentAction.MOVE_SOUTH;
             case EAST:  newLocation.translate( 1, 0); map.put(newLocation, Entity.TEAMMATE);
-                        location = newLocation; return AgentAction.MOVE_EAST;
+                        location = newLocation; printMap();  return AgentAction.MOVE_EAST;
             case WEST:  newLocation.translate(-1, 0); map.put(newLocation, Entity.TEAMMATE);
-                        location = newLocation; return AgentAction.MOVE_WEST;
+                        location = newLocation; printMap();  return AgentAction.MOVE_WEST;
             default:    map.put(new Point(location), Entity.ENEMY); return AgentAction.DO_NOTHING;
         }
+    }
+    
+    //seems to work?
+    private void resetPosition() 
+    {
+        map.put(new Point(location), Entity.EMPTY);
+        this.location = this.spawnLocation;
+        map.put(new Point(location), Entity.TEAMMATE);
     }
     
     private int localMove(Direction direction)
@@ -238,8 +275,8 @@ public class ecr110030Agent extends Agent {
         Entity tile = Entity.EMPTY;
         switch(direction) {
             case NORTH: tile=inEnvironment.isObstacleNorthImmediate() ? Entity.OBSTACLE 
-                        : inEnvironment.isFlagNorth(AgentEnvironment.OUR_TEAM,true) ? Entity.OURFLAG 
-                        : inEnvironment.isFlagNorth(AgentEnvironment.ENEMY_TEAM,true) ? Entity.ENEMYFLAG 
+                        : inEnvironment.isFlagNorth(AgentEnvironment.OUR_TEAM,true) ? Entity.OURFLAG
+                        : inEnvironment.isFlagNorth(AgentEnvironment.ENEMY_TEAM,true) ? Entity.ENEMYFLAG
                         : inEnvironment.isAgentNorth(AgentEnvironment.ENEMY_TEAM,true) ? Entity.ENEMY 
                         : inEnvironment.isBaseNorth(AgentEnvironment.OUR_TEAM,true) ? Entity.OURBASE
                         : Entity.EMPTY; break;
@@ -331,7 +368,7 @@ public class ecr110030Agent extends Agent {
         if(searchGraph.isEmpty()) return null;
         else {
             Node n = searchGraph.poll();
-            System.out.println("Selected: "+n.p.toString());
+            //System.out.println("Selected: "+n.p.toString());
                 /* Check if this tile is the enemy flag tile; may need to be changed later */
             if(n.p.equals(goal)) return n;
             else {
@@ -345,10 +382,14 @@ public class ecr110030Agent extends Agent {
                         case WEST:  p.translate(-1, 0); break;
                     }
                     Node childNode = new Node(p,n,dir);
-                    if( (p.x > -1) && (p.x < mapSize) && (p.y > -1) && (p.y<mapSize) 
-                            && !map.get(childNode.p).equals(Entity.OBSTACLE) 
-                            && !map.get(childNode.p).equals(Entity.OURBASE))
+                    //System.out.println(childNode.p.toString());
+                    if(map.containsKey(childNode.p) 
+                    && !map.get(childNode.p).equals(Entity.OBSTACLE) 
+                    && !map.get(childNode.p).equals(Entity.OURBASE)
+                    && !map.get(childNode.p).equals(Entity.OURFLAG)) {
                         searchGraph.add(childNode);
+                        //System.out.println(p.x + " " + p.y);
+                    }
                 }
                 //searchGraph.stream().forEach(p -> System.out.print("("+p.p.x+","+p.p.y+")"));
                 //System.out.println();
