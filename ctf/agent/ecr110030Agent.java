@@ -181,10 +181,11 @@ public class ecr110030Agent extends Agent {
                     resetPosition();
                 }
             }
-                
             
             //scan around agent
             this.scanAround(map);
+            
+            /* Basic logic case statement lol */
             
             //if enemy does not have flag
             if(!inEnvironment.hasFlag(AgentEnvironment.ENEMY_TEAM))
@@ -193,7 +194,27 @@ public class ecr110030Agent extends Agent {
                 if(!inEnvironment.hasFlag(AgentEnvironment.OUR_TEAM))
                 {
                     //head to enemy base
-                    return this.move(astar(map,enemyBase));
+                    if(!inEnvironment.hasFlag(AgentEnvironment.OUR_TEAM))
+                    {
+                        //head to enemy base
+                        HashMap<Point, Entity> map2 = new HashMap<>(map);
+                        Point p = new Point(location);
+                        Direction d = astar(location,enemyBase,map2);
+                        for(Direction dir : Direction.values())
+                        {
+                            switch(dir) {
+                                case NORTH: p.translate(0,1);  break;
+                                case EAST:  p.translate(1,0);  break;
+                                case SOUTH: p.translate(0,-1); break;
+                                case WEST:  p.translate(-1,0); break;
+                            }
+                            if(map2.get(p)==Entity.OURBASE)
+                                map2.put(p,Entity.OBSTACLE);
+                            d = astar(location,enemyBase,map2);
+                        }
+
+                        return this.move(d);
+                    }
                 }
                 //else if we do have the enemy flag
                 else 
@@ -201,14 +222,54 @@ public class ecr110030Agent extends Agent {
                     //if our team has the flag but it is not you
                     if(inEnvironment.hasFlag(AgentEnvironment.OUR_TEAM) && !inEnvironment.hasFlag())
                     {
+                        //if we are not in the way of the other agent,
                         //head to enemy base
-                        return this.move(astar(map,enemyBase));
+                        if(/*inEnvironment.isBaseNorth(AgentEnvironment.OUR_TEAM,true) || inEnvironment.isBaseSouth(AgentEnvironment.OUR_TEAM,true)
+                                || inEnvironment.isBaseEast(AgentEnvironment.OUR_TEAM,true) || inEnvironment.isBaseWest(AgentEnvironment.OUR_TEAM,true)
+                                || */ inEnvironment.isAgentNorth(AgentEnvironment.OUR_TEAM, true) || inEnvironment.isAgentEast(AgentEnvironment.OUR_TEAM, true)
+                                || inEnvironment.isAgentSouth(AgentEnvironment.OUR_TEAM, true) || inEnvironment.isAgentWest(AgentEnvironment.OUR_TEAM, true))
+                        {
+                            HashMap<Point, Entity> map2 = new HashMap<>(map);
+                            Point p = new Point(location);
+                            Direction d = astar(location,spawnLocation,map2);
+                            for(Direction dir : Direction.values()) {
+                                p = new Point(location);
+                                switch(d) {
+                                    case NORTH: p.translate(0,1);  break;
+                                    case EAST:  p.translate(1,0);  break;
+                                    case SOUTH: p.translate(0,-1); break;
+                                    case WEST:  p.translate(-1,0); break;
+                                }
+                                if(map.get(p).equals(Entity.TEAMMATE) || map.get(p).equals(Entity.OURBASE)) map2.put(p,Entity.OBSTACLE);
+                            }
+                            return move(astar(p,spawnLocation,map2));
+                            
+                        }
+                        /*
+                        else if(inEnvironment.isAgentNorth(AgentEnvironment.OUR_TEAM,true) || inEnvironment.isAgentSouth(AgentEnvironment.OUR_TEAM,true)
+                                || inEnvironment.isAgentEast(AgentEnvironment.OUR_TEAM,true) || inEnvironment.isAgentWest(AgentEnvironment.OUR_TEAM,true))
+                        {
+                            Point p = new Point(spawnLocation);
+                            p.translate(baseSide==Direction.EAST ? spawnLocation.x-(mapSize-1) : 0, spawnLocation.y);
+                            return this.move(astar(location,p,map));
+                        }
+                        */
+                        return this.move(astar(location,enemyBase,map));
                     }
                     //else if our team has the flag and you are that agent
                     else if(inEnvironment.hasFlag(AgentEnvironment.OUR_TEAM) && inEnvironment.hasFlag())
                     {
-                        //head back to base
-                        return this.move(astar(map,base));
+                        HashMap<Point, Entity> map2 = new HashMap<>(map);
+                        while(true) {
+                            Direction d = astar(location,base,map2);
+                            Point p = new Point(location);
+                            switch(d) {
+                                case NORTH: p.translate(0,1);  if(!map.get(p).equals(Entity.ENEMY)) return move(d); else if(!p.equals(base)) map2.put(p,Entity.OBSTACLE); else return move(d); break;
+                                case EAST:  p.translate(1,0);  if(!map.get(p).equals(Entity.ENEMY)) return move(d); else if(!p.equals(base)) map2.put(p,Entity.OBSTACLE); else return move(d); break;
+                                case SOUTH: p.translate(0,-1); if(!map.get(p).equals(Entity.ENEMY)) return move(d); else if(!p.equals(base)) map2.put(p,Entity.OBSTACLE); else return move(d); break;
+                                case WEST:  p.translate(-1,0); if(!map.get(p).equals(Entity.ENEMY)) return move(d); else if(!p.equals(base)) map2.put(p,Entity.OBSTACLE); else return move(d); break;
+                            }
+                        }
                     }
                 } 
                 //else if a teammate has flag and you are that teammate
@@ -220,7 +281,23 @@ public class ecr110030Agent extends Agent {
                 if(!inEnvironment.hasFlag(AgentEnvironment.OUR_TEAM))
                 {
                     //head to enemy base
-                    return this.move(astar(map,enemyBase));
+                    HashMap<Point, Entity> map2 = new HashMap<>(map);
+                    Point p = new Point(location);
+                    Direction d = astar(location,enemyBase,map2);
+                    for(Direction dir : Direction.values())
+                    {
+                        switch(dir) {
+                            case NORTH: p.translate(0,1);  break;
+                            case EAST:  p.translate(1,0);  break;
+                            case SOUTH: p.translate(0,-1); break;
+                            case WEST:  p.translate(-1,0); break;
+                        }
+                        if(map2.get(p)==Entity.OURBASE)
+                            map2.put(p,Entity.OBSTACLE);
+                        d = astar(location,enemyBase,map2);
+                    }
+                    
+                    return this.move(d);
                 }
                 //else if we do have the enemy flag
                 else 
@@ -229,17 +306,82 @@ public class ecr110030Agent extends Agent {
                     if(inEnvironment.hasFlag(AgentEnvironment.OUR_TEAM) && !inEnvironment.hasFlag())
                     {
                         //head to enemy base
-                        return this.move(astar(map,enemyBase));
+                        if(/*inEnvironment.isBaseNorth(AgentEnvironment.OUR_TEAM,true) || inEnvironment.isBaseSouth(AgentEnvironment.OUR_TEAM,true)
+                                || inEnvironment.isBaseEast(AgentEnvironment.OUR_TEAM,true) || inEnvironment.isBaseWest(AgentEnvironment.OUR_TEAM,true) 
+                                || */ inEnvironment.isAgentNorth(AgentEnvironment.OUR_TEAM, true) || inEnvironment.isAgentEast(AgentEnvironment.OUR_TEAM, true)
+                                || inEnvironment.isAgentSouth(AgentEnvironment.OUR_TEAM, true) || inEnvironment.isAgentWest(AgentEnvironment.OUR_TEAM, true))
+                        {
+                            HashMap<Point, Entity> map2 = new HashMap<>(map);
+                            Point p = new Point(location);
+                            Direction d = astar(location,spawnLocation,map2);
+                            for(Direction dir : Direction.values()) {
+                                p = new Point(location);
+                                switch(d) {
+                                    case NORTH: p.translate(0,1);  break;
+                                    case EAST:  p.translate(1,0);  break;
+                                    case SOUTH: p.translate(0,-1); break;
+                                    case WEST:  p.translate(-1,0); break;
+                                }
+                                if(map.get(p).equals(Entity.TEAMMATE) || map.get(p).equals(Entity.OURBASE)) map2.put(p,Entity.OBSTACLE);
+                            }
+                            return move(astar(p,spawnLocation,map2));
+                            
+                        }
+                        /*
+                        else if(inEnvironment.isAgentNorth(AgentEnvironment.OUR_TEAM,true) || inEnvironment.isAgentSouth(AgentEnvironment.OUR_TEAM,true)
+                                || inEnvironment.isAgentEast(AgentEnvironment.OUR_TEAM,true) || inEnvironment.isAgentWest(AgentEnvironment.OUR_TEAM,true))
+                        {
+                            Point p = new Point(spawnLocation);
+                            p.translate(baseSide==Direction.EAST ? spawnLocation.x-(mapSize-1) : 0, spawnLocation.y);
+                            return this.move(astar(location,p,map));
+                        }
+                        */
+                        return this.move(astar(location,enemyBase,map));
                     } 
                     //else if a teammate has flag and you are that teammate
                     else if(inEnvironment.hasFlag(AgentEnvironment.OUR_TEAM) && inEnvironment.hasFlag())
                     {
                         //head back to base
-                        return this.move(astar(map,base));
+                        
+                        HashMap<Point, Entity> map2 = new HashMap<>(map);
+                        while(true) {
+                            Direction d = astar(location,base,map2);
+                            Point p = new Point(location);
+                            switch(d) {
+                                case NORTH: p.translate(0,1);  if(!map.get(p).equals(Entity.ENEMY) || (location.x+mapSize)%mapSize <= mapSize/2 && inEnvironment.isFlagNorth(AgentEnvironment.OUR_TEAM,true)) return move(d); else if(!p.equals(base)) map2.put(p,Entity.OBSTACLE); else return move(d); break;
+                                case EAST:  p.translate(1,0);  if(!map.get(p).equals(Entity.ENEMY) || (location.x+mapSize)%mapSize <= mapSize/2 && inEnvironment.isFlagEast(AgentEnvironment.OUR_TEAM,true)) return move(d); else if(!p.equals(base)) map2.put(p,Entity.OBSTACLE); else return move(d); break;
+                                case SOUTH: p.translate(0,-1); if(!map.get(p).equals(Entity.ENEMY) || (location.x+mapSize)%mapSize <= mapSize/2 && inEnvironment.isFlagSouth(AgentEnvironment.OUR_TEAM,true)) return move(d); else if(!p.equals(base)) map2.put(p,Entity.OBSTACLE); else return move(d); break;
+                                case WEST:  p.translate(-1,0); if(!map.get(p).equals(Entity.ENEMY) || (location.x+mapSize)%mapSize <= mapSize/2 && inEnvironment.isFlagWest(AgentEnvironment.OUR_TEAM,true)) return move(d); else if(!p.equals(base)) map2.put(p,Entity.OBSTACLE); else return move(d); break;
+                            }
+                        }
                     }
                 }
             }  
+            
+            
+            /*
+                Point nextPoint = astar(location,enemyBase);
+                System.out.println("hi");
+                Point s = new Point(location);
+                s.translate(0, 1);
+                if(s.equals(nextPoint)) return move(Direction.NORTH);
+                s = new Point(location);
+                s.translate(0,-1);
+                if(s.equals(nextPoint)) return move(Direction.SOUTH);
+                s = new Point(location);
+                s.translate(1,0);
+                if(s.equals(nextPoint)) return move(Direction.EAST);
+                s = new Point(location);
+                s.translate(-1,0);
+                if(s.equals(nextPoint)) return move(Direction.WEST);
+            */
+            
+            
+            
         }
+            
+            
+        
         //else, if map size has not yet been determined:
         
         //do nothing for now once map initialized...
@@ -254,14 +396,18 @@ public class ecr110030Agent extends Agent {
         Point newLocation = new Point(location);
         if(direction==null) return AgentAction.DO_NOTHING;
         switch(direction) {
-            case NORTH: newLocation.translate( 0, 1); map.put(newLocation, Entity.TEAMMATE);
-                        location = newLocation; printMap();  return AgentAction.MOVE_NORTH;
-            case SOUTH: newLocation.translate( 0,-1); map.put(newLocation, Entity.TEAMMATE);
-                        location = newLocation; printMap();  return AgentAction.MOVE_SOUTH;
-            case EAST:  newLocation.translate( 1, 0); map.put(newLocation, Entity.TEAMMATE);
-                        location = newLocation; printMap();  return AgentAction.MOVE_EAST;
-            case WEST:  newLocation.translate(-1, 0); map.put(newLocation, Entity.TEAMMATE);
-                        location = newLocation; printMap();  return AgentAction.MOVE_WEST;
+            case NORTH: if(inEnvironment.isAgentNorth(AgentEnvironment.OUR_TEAM, true)) return AgentAction.DO_NOTHING;
+                        newLocation.translate( 0, 1); map.put(newLocation, Entity.TEAMMATE);
+                        location = newLocation; printMap(); return AgentAction.MOVE_NORTH;
+            case SOUTH: if(inEnvironment.isAgentSouth(AgentEnvironment.OUR_TEAM, true)) return AgentAction.DO_NOTHING; 
+                        newLocation.translate( 0,-1); map.put(newLocation, Entity.TEAMMATE);
+                        location = newLocation; printMap(); return AgentAction.MOVE_SOUTH;
+            case EAST:  if(inEnvironment.isAgentEast(AgentEnvironment.OUR_TEAM, true)) return AgentAction.DO_NOTHING;
+                        newLocation.translate( 1, 0); map.put(newLocation, Entity.TEAMMATE);
+                        location = newLocation; printMap(); return AgentAction.MOVE_EAST;
+            case WEST:  if(inEnvironment.isAgentWest(AgentEnvironment.OUR_TEAM, true)) return AgentAction.DO_NOTHING;
+                        newLocation.translate(-1, 0); map.put(newLocation, Entity.TEAMMATE);
+                        location = newLocation; printMap(); return AgentAction.MOVE_WEST;
             default:    map.put(new Point(location), Entity.ENEMY); return AgentAction.DO_NOTHING;
         }
     }
@@ -350,6 +496,100 @@ public class ecr110030Agent extends Agent {
     } 
     //------------------------------------------------------------------------//
     
+    private class Node2 {
+        int f, g, h;
+        Point p, t;
+        Direction d;
+        
+        private Node2(Point thisPoint, Point target) {
+            p = new Point(thisPoint); 
+            t = new Point(target);
+            h = Math.abs(t.x - p.x) + Math.abs(t.y - p.y);
+            g = 0;
+            f = g + h;
+            d = null;
+        }
+        private Node2(Point thisPoint, Point target, Node2 parent, Direction dir) {
+            this(thisPoint, target);
+            g = parent.g + 1;
+            f = g + h;
+            d = dir;
+            
+        }
+        
+        @Override
+        public boolean equals(Object o) {
+            return (o instanceof Node2) && ((Node2)o).p.equals(this.p) && ((Node2)o).t.equals(this.t);
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = 3;
+            hash = 29 * hash + Objects.hashCode(this.p);
+            hash = 29 * hash + Objects.hashCode(this.t);
+            return hash;
+        }
+    }
+    
+    private Direction astar(Point start, Point end, HashMap<Point, Entity> map) {
+        if(start.equals(end)) return null;
+        
+        PriorityQueue<Node2> searchGraph = new PriorityQueue<>(
+                (Node2 n1, Node2 n2) -> { 
+                    return n1.f == n2.f ? n1.h - n2.h : n1.f - n2.f;
+                    //return n1.f == n2.f ? n1.h == n2.h ? n1.p.x - n2.p.x : n1.h - n2.h : n1.f - n2.f; 
+        });
+        HashSet<Node2> searchSet = new HashSet<>();
+        
+        Node2 initialNode = new Node2(end, start); //reverse astar
+        searchGraph.add(initialNode);
+        searchSet.add(initialNode);
+        
+        if(searchGraph.peek()==null || searchSet.isEmpty()){
+            return null;
+        }
+        else {
+            
+            while(true) {
+                if(searchGraph.peek()==null) return null;
+                Node2 next = searchGraph.poll();
+                
+                if(next.p.equals(start)) {
+                    System.out.println(next.p);
+                    return next.d;
+                }
+                else {
+                    //successors
+                    for(Direction dir : Direction.values()){
+                        Point p = new Point(next.p);
+                        Direction d = null;
+                        switch(dir){
+                            case NORTH: p.translate( 0, 1); d = Direction.SOUTH; break;
+                            case SOUTH: p.translate( 0,-1); d = Direction.NORTH; break;
+                            case EAST:  p.translate( 1, 0); d = Direction.WEST; break;
+                            case WEST:  p.translate(-1, 0); d = Direction.EAST; break;
+                        }
+                        
+                        Node2 n = new Node2(p,next.t,next,d);
+
+                        if(!searchSet.contains(n) && map.containsKey(n.p) && map.get(n.p)!=Entity.OBSTACLE) {
+                            searchSet.add(n);
+                            searchGraph.add(n);
+                        }    
+                    }
+
+
+                }
+            }
+            
+        }
+            
+        
+        
+        //return null;
+    }
+    
+    
     
     //----Methods for determining where to move-------------------------------//
     private class Node{
@@ -403,8 +643,8 @@ public class ecr110030Agent extends Agent {
         });
         
         searchGraph.add(new Node(location, goal));
-        HashSet<Node> searchSet = new HashSet<>();
-        searchSet.add(new Node(location, goal));
+        HashSet<Point> searchSet = new HashSet<>();
+        searchSet.add(new Point(location));
         System.out.println("Current: ("+location.x+","+location.y+")  Goal: ("+goal.x+","+goal.y+")  Enemy Base: ("+ecr110030Agent.enemyBase.x+","+ecr110030Agent.enemyBase.y+")  Base: ("+base.x+","+base.y+")");
         
         //goalLeaf = null if no path found, which will not happen since duplicates are allowed for now
@@ -422,7 +662,8 @@ public class ecr110030Agent extends Agent {
         return moveDirection;
     }
     
-    private Node successors(HashMap<Point, Entity> map, PriorityQueue<Node> searchGraph, HashSet<Node> searchSet, Point goal)
+    
+    private Node successors(HashMap<Point, Entity> map, PriorityQueue<Node> searchGraph, HashSet<Point> searchSet, Point goal)
     {
         if(searchGraph.isEmpty()) return null;
         else {
@@ -442,8 +683,8 @@ public class ecr110030Agent extends Agent {
                     }
                     Node childNode = new Node(p,goal,n,dir);
                     //System.out.println(childNode.p.toString());
-                    if(!searchSet.contains(childNode) && map.containsKey(childNode.p) && !map.get(childNode.p).equals(Entity.OBSTACLE)) {
-                        if(inEnvironment.hasFlag(AgentEnvironment.OUR_TEAM) || (!map.get(childNode.p).equals(Entity.OURBASE) && !map.get(childNode.p).equals(Entity.OURFLAG) && !map.get(childNode.p).equals(Entity.TEAMMATE))) {
+                    if(!searchSet.contains(childNode.p) && map.containsKey(childNode.p) && !map.get(childNode.p).equals(Entity.OBSTACLE)) {
+                        if(inEnvironment.hasFlag(AgentEnvironment.OUR_TEAM) || (!map.get(childNode.p).equals(Entity.OURBASE) && !map.get(childNode.p).equals(Entity.OURFLAG) /*&& !map.get(childNode.p).equals(Entity.TEAMMATE)*/)) {
                             searchGraph.add(childNode);
                             System.out.println("("+p.x + "," + p.y+") ");
                         }
@@ -456,6 +697,7 @@ public class ecr110030Agent extends Agent {
             }
         }
     }
+    
     //------------------------------------------------------------------------//
     
     
